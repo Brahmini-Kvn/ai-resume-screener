@@ -1,0 +1,3 @@
+John Doe
+Full Stack Developer with 5 years of experience in Node.js, React, GraphQL, and MongoDB.
+Worked at XYZ Corp on cloud-native apps. Looking for backend-heavy roles.

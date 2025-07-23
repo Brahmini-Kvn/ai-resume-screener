@@ -1,0 +1,3 @@
+Alex Patel
+Software Engineer with experience in Python, FastAPI, and data engineering on AWS.
+Built ETL pipelines and ML deployment workflows.

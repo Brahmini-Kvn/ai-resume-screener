@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+vectorstore/
+vectorstore_ui/
+.env
+evaluated_resumes.csv
