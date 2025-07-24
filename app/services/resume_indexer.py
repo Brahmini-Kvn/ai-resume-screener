@@ -2,9 +2,10 @@
 
 import os
 from typing import Optional
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
-from langchain_unstructured import UnstructuredLoader
+# from langchain_unstructured import UnstructuredLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
 
@@ -14,19 +15,19 @@ embedding_model = OpenAIEmbeddings(openai_api_key=openai_api_key)
 
 def load_resume(filepath: str):
     try:
-        if os.path.getsize(filepath) > 3_000_000 or "vivek" in filepath.lower():
-            print(f"⚠️ Skipping potentially problematic file: {filepath}")
-            return []
-
         print(f"📄 Loading file: {filepath}")
-        docs = UnstructuredLoader(filepath).load()
 
-        for doc in docs:
-            doc.metadata["source"] = filepath  # ✅ Attach source for grouping
-
-        return docs
+        if filepath.endswith(".pdf"):
+            return PyPDFLoader(filepath).load()
+        elif filepath.endswith(".docx"):
+            return Docx2txtLoader(filepath).load()
+        elif filepath.endswith(".txt"):
+            return TextLoader(filepath).load()
+        else:
+            print(f"❌ Unsupported file type: {filepath}")
+            return []
     except Exception as e:
-        print(f"❌ Failed to load {filepath}: {e}")
+        print(f"❌ Error loading {filepath}: {e}")
         return []
 
 def embed_resumes_from_folder(
