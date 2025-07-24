@@ -27,6 +27,15 @@ score_threshold = st.slider("📊 Minimum Score to Display", min_value=1, max_va
 def clean_filename(name):
     return re.sub(r"[^a-zA-Z0-9_.-]", "_", name)
 
+# ✅ Helper: Heuristically extract name from resume text
+def extract_name_from_text(text):
+    # Try first 20 lines, skip headers like "Summary", "Profile"
+    for line in text.split("\n")[:20]:
+        line = line.strip()
+        if re.match(r"^[A-Z][a-z]+ [A-Z][a-z]+$", line):
+            return line
+    return None
+
 if st.button("⚙️ Process Resumes") and job_description and uploaded_files:
     # 💣 Clean up any old vectorstore
     if os.path.exists("vectorstore_ui"):
@@ -60,9 +69,9 @@ if st.button("⚙️ Process Resumes") and job_description and uploaded_files:
             full_text = "\n\n".join(doc.page_content for doc in docs)
 
             # Try to extract name
-            first_chunk = docs[0].page_content
-            name_guess = re.findall(r"[A-Z][a-z]+\s+[A-Z][a-z]+", first_chunk[:300])
-            name = name_guess[0] if name_guess else os.path.basename(source).replace(".pdf", "").replace(".docx", "")
+            name = extract_name_from_text(full_text)
+            if not name:
+                name = os.path.basename(source).replace(".pdf", "").replace(".docx", "").replace(".txt", "")
 
             with st.spinner(f"Evaluating {name} with GPT..."):
                 result = evaluate_resume(full_text, job_description)
