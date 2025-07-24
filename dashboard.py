@@ -4,6 +4,7 @@ import tempfile
 import shutil
 import pandas as pd
 import re
+from collections import defaultdict
 
 from app.services.resume_indexer import embed_resumes_from_folder
 from app.services.searcher import search_similar_resumes
@@ -47,20 +48,31 @@ if st.button("⚙️ Process Resumes") and job_description and uploaded_files:
         st.subheader("🧠 GPT Evaluation of Top Matches")
         evaluated_data = []
 
-        for i, doc in enumerate(matches, 1):
-            raw_name = doc.metadata.get("source", f"Candidate #{i}").split("/")[-1]
-            name_guess = re.findall(r"[A-Z][a-z]+\s+[A-Z][a-z]+", doc.page_content[:300])
-            name = name_guess[0] if name_guess else raw_name.replace(".pdf", "").replace(".docx", "")
+        # ✅ Group chunks by resume source path
+        grouped_docs = defaultdict(list)
+        for doc in matches:
+            source = doc.metadata.get("source", "unknown")
+            grouped_docs[source].append(doc)
+
+        # ✅ Evaluate once per resume (grouped)
+        for i, (source, docs) in enumerate(grouped_docs.items(), 1):
+            # Merge chunks to full resume content
+            full_text = "\n\n".join(doc.page_content for doc in docs)
+
+            # Try to extract name
+            first_chunk = docs[0].page_content
+            name_guess = re.findall(r"[A-Z][a-z]+\s+[A-Z][a-z]+", first_chunk[:300])
+            name = name_guess[0] if name_guess else os.path.basename(source).replace(".pdf", "").replace(".docx", "")
 
             with st.spinner(f"Evaluating {name} with GPT..."):
-                result = evaluate_resume(doc.page_content, job_description)
+                result = evaluate_resume(full_text, job_description)
 
             try:
                 lines = result.split("\n")
                 score = int([l for l in lines if l.startswith("Score:")][0].split(":")[1].split("/")[0].strip())
                 summary = [l for l in lines if l.startswith("Summary:")][0].replace("Summary:", "").strip()
                 fit = [l for l in lines if l.startswith("Fit:")][0].replace("Fit:", "").strip()
-            except Exception as e:
+            except Exception:
                 score, summary, fit = None, result, "Unknown"
 
             if score is not None and score < score_threshold:
@@ -78,6 +90,7 @@ if st.button("⚙️ Process Resumes") and job_description and uploaded_files:
                 "summary": summary
             })
 
+        # 📤 Output final table and CSV download
         if evaluated_data:
             df = pd.DataFrame(evaluated_data)
             st.markdown("### 📊 Final Candidate Table")
