@@ -10,3 +10,4 @@ python-docx
 pypdf
 pandas
 tiktoken>=0.5.1
+docx2txt
