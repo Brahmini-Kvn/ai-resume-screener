@@ -1,11 +1,8 @@
-# app/services/resume_indexer.py
-
 import os
 from typing import Optional
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
-# from langchain_unstructured import UnstructuredLoader
+from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
 
@@ -15,19 +12,28 @@ embedding_model = OpenAIEmbeddings(openai_api_key=openai_api_key)
 
 def load_resume(filepath: str):
     try:
-        print(f"📄 Loading file: {filepath}")
+        print(f"📄 Attempting to load: {filepath}")
 
-        if filepath.endswith(".pdf"):
-            return PyPDFLoader(filepath).load()
-        elif filepath.endswith(".docx"):
-            return Docx2txtLoader(filepath).load()
-        elif filepath.endswith(".txt"):
-            return TextLoader(filepath).load()
+        if filepath.lower().endswith(".pdf"):
+            loader = PyPDFLoader(filepath)
+        elif filepath.lower().endswith(".docx"):
+            loader = Docx2txtLoader(filepath)
+        elif filepath.lower().endswith(".txt"):
+            loader = TextLoader(filepath)
         else:
-            print(f"❌ Unsupported file type: {filepath}")
+            print(f"⚠️ Unsupported file format: {filepath}")
             return []
+
+        docs = loader.load()
+
+        for doc in docs:
+            doc.metadata["source"] = filepath
+
+        print(f"✅ Loaded {len(docs)} document(s) from {filepath}")
+        return docs
+
     except Exception as e:
-        print(f"❌ Error loading {filepath}: {e}")
+        print(f"❌ Failed to load {filepath}: {e}")
         return []
 
 def embed_resumes_from_folder(
@@ -44,8 +50,11 @@ def embed_resumes_from_folder(
         if not os.path.isfile(path):
             continue
 
+        print(f"🔍 Processing file: {filename}")
         resume_docs = load_resume(path)
+
         if not resume_docs:
+            print(f"⚠️ No content parsed from {filename}")
             continue
 
         if use_chunking:
@@ -58,15 +67,16 @@ def embed_resumes_from_folder(
             print(f"🔗 Chunked {filename} into {len(chunks)} parts")
 
             for chunk in chunks:
-                chunk.metadata["source"] = path  # ✅ Reinforce metadata on each chunk
+                chunk.metadata["source"] = path
 
             all_docs.extend(chunks)
         else:
-            print(f"📄 Using full document for: {filename}")
             all_docs.extend(resume_docs)
 
     if not all_docs:
+        print("❌ No valid documents were embedded. Check file formats or content.")
         raise ValueError("No valid documents found to embed.")
+
 
     vectordb = FAISS.from_documents(all_docs, embedding_model)
     vectordb.save_local(save_path)
